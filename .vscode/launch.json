@@ -1,0 +1,44 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "boot: debug (ST-Link)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "stlink",
+      "cwd": "${workspaceFolder}/firmware/h5-boot",
+      "executable": "./build/h5-boot.elf",
+      "preLaunchTask": "boot: build",
+      "serverArgs": ["-m", "1"],
+      "windows": {
+        "serverpath": "C:/ST/STM32CubeCLT_1.20.0/STLink-gdb-server/bin/ST-LINK_gdbserver.exe",
+        "stm32cubeprogrammer": "C:/ST/STM32CubeCLT_1.20.0/STM32CubeProgrammer/bin",
+        "svdFile": "C:/ST/STM32CubeCLT_1.20.0/STMicroelectronics_CMSIS_SVD/STM32H563.svd"
+      },
+      "runToEntryPoint": "main",
+      "showDevDebugOutput": "none"
+    },
+    {
+      // 앱 디버깅
+      //  - preLaunchTask 가 TAG 붙은 이미지를 먼저 굽는다 (fw: flash)
+      //  - loadFiles: [] -> 디버거가 .elf 를 다시 굽지 않는다 (.elf 에는 TAG 가 없기 때문)
+      //  - 리셋 후 부트로더가 먼저 돌고, 검증을 통과하면 앱 main 에서 멈춘다
+      "name": "fw: debug (ST-Link, via bootloader)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "stlink",
+      "cwd": "${workspaceFolder}/firmware/h5-fw",
+      "executable": "./build/h5-fw.elf",
+      "preLaunchTask": "fw: flash",
+      "loadFiles": [],
+      "serverArgs": ["-m", "1"],
+      "windows": {
+        "serverpath": "C:/ST/STM32CubeCLT_1.20.0/STLink-gdb-server/bin/ST-LINK_gdbserver.exe",
+        "stm32cubeprogrammer": "C:/ST/STM32CubeCLT_1.20.0/STM32CubeProgrammer/bin",
+        "svdFile": "C:/ST/STM32CubeCLT_1.20.0/STMicroelectronics_CMSIS_SVD/STM32H563.svd"
+      },
+      "runToEntryPoint": "main",
+      "showDevDebugOutput": "none"
+    }
+  ]
+}

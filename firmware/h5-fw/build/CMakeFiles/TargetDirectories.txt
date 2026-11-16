@@ -1,0 +1,3 @@
+C:/work/git/HG/H5/h5-eth-fdcan/firmware/h5-fw/build/CMakeFiles/h5-fw.elf.dir
+C:/work/git/HG/H5/h5-eth-fdcan/firmware/h5-fw/build/CMakeFiles/edit_cache.dir
+C:/work/git/HG/H5/h5-eth-fdcan/firmware/h5-fw/build/CMakeFiles/rebuild_cache.dir

@@ -1,0 +1,147 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    // ---------------------------------------------------------------- boot
+    {
+      "label": "boot: configure",
+      "type": "process",
+      "command": "cmake",
+      "args": ["-S", ".", "-B", "build", "-G", "Ninja"],
+      "options": { "cwd": "${workspaceFolder}/firmware/h5-boot" },
+      "problemMatcher": []
+    },
+    {
+      "label": "boot: build",
+      "type": "process",
+      "command": "cmake",
+      "args": ["--build", "build", "--parallel"],
+      "options": { "cwd": "${workspaceFolder}/firmware/h5-boot" },
+      "dependsOn": "boot: configure",
+      "problemMatcher": { "base": "$gcc", "fileLocation": "absolute" }
+    },
+    {
+      "label": "boot: flash",
+      "type": "process",
+      "command": "STM32_Programmer_CLI",
+      "args": ["-c", "port=SWD", "-w", "build/h5-boot.bin", "0x08000000", "-v", "-rst"],
+      "options": { "cwd": "${workspaceFolder}/firmware/h5-boot" },
+      "dependsOn": "boot: build",
+      "problemMatcher": []
+    },
+    {
+      "label": "boot: clean",
+      "type": "process",
+      "command": "cmake",
+      "args": ["--build", "build", "--target", "clean"],
+      "options": { "cwd": "${workspaceFolder}/firmware/h5-boot" },
+      "problemMatcher": []
+    },
+
+    // ---------------------------------------------------------------- fw
+    {
+      "label": "fw: configure",
+      "type": "process",
+      "command": "cmake",
+      "args": ["-S", ".", "-B", "build", "-G", "Ninja"],
+      "options": { "cwd": "${workspaceFolder}/firmware/h5-fw" },
+      "problemMatcher": []
+    },
+    {
+      "label": "fw: build",
+      "type": "process",
+      "command": "cmake",
+      "args": ["--build", "build", "--parallel"],
+      "options": { "cwd": "${workspaceFolder}/firmware/h5-fw" },
+      "dependsOn": "fw: configure",
+      "problemMatcher": { "base": "$gcc", "fileLocation": "absolute" },
+      "group": { "kind": "build", "isDefault": true }
+    },
+    {
+      // TAG 가 붙은 이미지를 Firmware 슬롯 시작(0x08010000)에 굽는다
+      "label": "fw: flash",
+      "type": "process",
+      "command": "STM32_Programmer_CLI",
+      "args": ["-c", "port=SWD", "-w", "build/h5-fw_tag.bin", "0x08010000", "-v", "-rst"],
+      "options": { "cwd": "${workspaceFolder}/firmware/h5-fw" },
+      "dependsOn": "fw: build",
+      "problemMatcher": []
+    },
+    {
+      "label": "fw: clean",
+      "type": "process",
+      "command": "cmake",
+      "args": ["--build", "build", "--target", "clean"],
+      "options": { "cwd": "${workspaceFolder}/firmware/h5-fw" },
+      "problemMatcher": []
+    },
+
+    // ---------------------------------------------------------------- 시험용
+    {
+      // 일부러 틀린 CRC 로 TAG 를 만들어 굽는다 -> 부트로더가 "CRC mismatch" 로 거부해야 한다
+      "label": "test: flash fw with bad CRC",
+      "type": "shell",
+      "command": "python ../tools/fw_tag.py build/h5-fw.bin build/h5-fw_badcrc.bin --bad-crc; STM32_Programmer_CLI -c port=SWD -w build/h5-fw_badcrc.bin 0x08010000 -v -rst",
+      "options": { "cwd": "${workspaceFolder}/firmware/h5-fw" },
+      "dependsOn": "fw: build",
+      "problemMatcher": []
+    },
+    {
+      // Firmware 슬롯 첫 섹터(TAG 가 있는 곳, sector 8 = 0x08010000)만 지운다 -> "no TAG"
+      "label": "test: erase fw TAG sector",
+      "type": "process",
+      "command": "STM32_Programmer_CLI",
+      "args": ["-c", "port=SWD", "-e", "8", "-rst"],
+      "problemMatcher": []
+    },
+
+    {
+      // 보드 TCP 서버(포트 5000)에 접속해 버전 조회 등을 시험한다 (Step 5)
+      "label": "test: net cmd (TCP 5000)",
+      "type": "process",
+      "command": "python",
+      "args": ["${workspaceFolder}/software/tools/net_cmd_test.py", "${input:boardIp}"],
+      "problemMatcher": []
+    },
+
+    {
+      // PC GUI 실행 (COM 포트 + 랜 보드 둘 다 연결 가능)
+      "label": "gui: run",
+      "type": "process",
+      "command": "python",
+      "args": ["fdcan-gui.py"],
+      "options": { "cwd": "${workspaceFolder}/software/fdcan-gui" },
+      "problemMatcher": []
+    },
+    {
+      // USB-C 로 굽기 (ST 내장 DFU). 보드에서: BOOT0(S3) 누른 채 RESET(S2) 눌렀다 떼기 -> BOOT0 떼기
+      "label": "dfu: flash boot + fw (USB-C)",
+      "type": "shell",
+      "command": "STM32_Programmer_CLI -c port=USB1 -w firmware/h5-boot/build/h5-boot.bin 0x08000000 -v; STM32_Programmer_CLI -c port=USB1 -w firmware/h5-fw/build/h5-fw_tag.bin 0x08010000 -v",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+
+    // ---------------------------------------------------------------- 전체
+    {
+      "label": "all: flash (boot + fw)",
+      "dependsOrder": "sequence",
+      "dependsOn": ["boot: flash", "fw: flash"],
+      "problemMatcher": []
+    },
+    {
+      "label": "chip: full erase",
+      "type": "process",
+      "command": "STM32_Programmer_CLI",
+      "args": ["-c", "port=SWD", "-e", "all"],
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "boardIp",
+      "type": "promptString",
+      "description": "보드 IP 주소 (터미널의 'eth dhcp : OK' 아래 ip)",
+      "default": "192.168.0.50"
+    }
+  ]
+}
